@@ -14,14 +14,14 @@ interface CodeModule {
 export const pythonModules: CodeModule[] = [
   {
     id: 'offline_notebook',
-    name: '12h Kaggle Offline End-to-End Pipeline',
+    name: 'Kaggle Offline End-to-End Pipeline',
     filename: 'kaggle_offline_pipeline.py',
     category: 'End-to-End Kaggle',
-    description: 'Self-contained 12-hour offline GPU pipeline with Zarr v3 chunk streaming, anisotropic detection, 7.0 µm bipartite tracking, conservative division resolution, and submission generation.',
+    description: 'Self-contained offline GPU pipeline with Zarr v3 chunk streaming, anisotropic detection, 7.0 µm bipartite tracking, conservative division resolution, and submission generation.',
     code: `"""
 # ==============================================================================
 # bi[o]hub | Cell Tracking During Development
-# Complete 12-Hour Offline Kaggle GPU Submission Pipeline
+# Complete Offline Kaggle GPU Submission Pipeline
 # ==============================================================================
 # Markdown Header Standard for Kaggle Notebooks:
 # <div style="background: linear-gradient(135deg, #181528 0%, #2A1D54 100%); padding: 24px 28px; border-radius: 12px; border-left: 6px solid #6A45FF; margin-bottom: 20px;">
@@ -359,10 +359,10 @@ def export_and_verify_submission(
 
 
 # ------------------------------------------------------------------------------
-# 6. Main Execution Loop for 12h Kaggle Offline Notebook
+# 6. Main Execution Loop for Kaggle Offline Notebook
 # ------------------------------------------------------------------------------
 if __name__ == '__main__':
-    print("[bi[o]hub] Initiating 12h Offline Inference Engine...")
+    print("[bi[o]hub] Initiating Offline Inference Engine...")
     start_time = time.time()
     DATASET_NAME = "blastomere_dev_01"
 
@@ -1329,7 +1329,7 @@ export const PythonPipelineModules: React.FC = () => {
             <h2 className="font-bold text-sm text-white flex items-center gap-2">
               Production Python Pipeline Repository
               <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#6A45FF]/20 text-[#A259FF] border border-[#6A45FF]/40">
-                12h Offline Validated
+                Kaggle Offline Validated
               </span>
             </h2>
             <p className="text-xs text-[#A5A1B8]">

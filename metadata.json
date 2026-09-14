@@ -1,6 +1,6 @@
 {
   "name": "Biohub Cell Tracking Engineering Hub",
-  "description": "Kaggle Grandmaster 3D+t cell tracking & lineage reconstruction workbench with exact metric evaluation, interactive 3D visualizer, and production-grade pipeline modules.",
+  "description": "Production apparatus for 4D cell tracking during development, stabilized multi-angle exploration, real-time lineage reconstruction, invariant testing, and precision export dossier suite.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

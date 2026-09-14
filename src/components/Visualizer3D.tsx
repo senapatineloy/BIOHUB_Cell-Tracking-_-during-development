@@ -647,26 +647,6 @@ export const Visualizer3D: React.FC<Visualizer3DProps> = ({
 
       {/* Main Canvas Area */}
       <div className="relative flex-1 min-h-[420px] w-full" ref={containerRef} onClick={handleCanvasClick}>
-        {/* Info Legend Overlay */}
-        <div className="absolute top-3 left-3 bg-[#181528]/85 backdrop-blur-md p-2.5 rounded-lg border border-[#352C58] text-[11px] text-[#F0EDFF] pointer-events-none space-y-1">
-          <div className="font-semibold text-white pb-1 border-b border-[#352C58] flex items-center justify-between">
-            <span>Coordinate Scaling</span>
-            <span className="text-[10px] font-mono text-[#A259FF]">7.0 µm Gating</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#6A45FF]"></span>
-            <span>z: 1.625 µm/vox (4x anisotropy)</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#A259FF]"></span>
-            <span>y, x: 0.40625 µm/vox</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
-            <span>Cutoff: D &le; 7.0 µm in physical space</span>
-          </div>
-        </div>
-
         {/* Selected Cell Inspector Overlay */}
         {selectedNode && (
           <div className="absolute bottom-4 right-4 max-w-xs bg-[#181528]/95 backdrop-blur-md p-3.5 rounded-lg border border-[#6A45FF]/50 text-xs text-[#F0EDFF] shadow-2xl space-y-2">
@@ -717,6 +697,14 @@ export const Visualizer3D: React.FC<Visualizer3DProps> = ({
             </div>
           </div>
         )}
+      </div>
+
+      {/* Docked Ultra-Slim Horizontal Status Ribbon (Zero Canvas Collision) */}
+      <div style={{ background: 'rgba(10, 7, 20, 0.85)', borderTop: '1px solid #251D4A', borderBottom: '1px solid #251D4A', padding: '6px 14px', fontSize: '11px', fontFamily: 'monospace', color: '#8E88B0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span><strong>Scale:</strong> Z=1.625 µm/vox (4×) | XY=0.406 µm/vox</span>
+        <span style={{ color: '#00FFA3' }}><strong>Gate:</strong> Cutoff D ≤ 7.0 µm in physical space</span>
+        <span><strong>Bounds:</strong> 104 × 104 × 104 µm³</span>
+        <span style={{ color: '#6A45FF' }}>● STABILIZED</span>
       </div>
 
       {/* Timeline Scrubber Bar */}
