@@ -67,6 +67,7 @@ EXCLUSION_PATTERNS: Set[str] = {
 
 # Explicit files and folders to package
 INCLUDED_CORE_FILES: List[str] = [
+    "inference_runner.py",
     "inference_entry.py",
     "zarr_io_streamer.py",
     "app.py",
