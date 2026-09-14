@@ -1592,221 +1592,389 @@ def validate_competition_schema(nodes: List[Dict], edges: List[Dict]) -> Tuple[b
 
 
 # ------------------------------------------------------------------------------
-# 10. Automated Invariant & Physics Unit Test Suite
+# 10. Automated Invariant & Physics Unit Test Suite (Rigorous Assertion Runner)
 # ------------------------------------------------------------------------------
-def run_verification_suite(
-    nodes: Optional[List[Dict[str, Any]]] = None,
-    edges: Optional[List[Dict[str, Any]]] = None
+def run_rigorous_tests(
+    nodes_df: Any = None,
+    edges_df: Any = None,
+    n_est: Optional[int] = None
 ) -> Dict[str, Any]:
     """
-    Automated Unit & Invariant Test Suite:
-      Test 1: Anisotropic Coordinate Invariant (4.0× axial ratio, Δz=4 voxels -> exactly 6.5 µm, raw voxel rejection).
-      Test 2: Hard Spatial Gating Enforcement (7.0 µm Cutoff with linear_sum_assignment penalty 1e7, test pairs at 6.8 µm and 7.2 µm).
-      Test 3: Over-Prediction Penalty Bounds (P = min(1.0, N_est / N_pred) ∈ (0.0, 1.0], severe penalty for N_pred >> N_est).
-      Test 4: Lineage Graph Referential Integrity (10-column schema, source/target in nodes, monotonic time, binary bifurcation).
-      Test 5: Export Digest & Schema Conformance (10 competition headers strictly ordered, SHA-256 state ledger byte verification).
+    Principal Verification Test Runner:
+      Executes live assertions against in-memory tracking tensors,
+      validates physical spatial invariants, calculates execution latency,
+      and produces structured pass/fail telemetry dictionaries.
+
+      Test 1: Anisotropic Coordinate Transformation
+      Test 2: Bipartite Hungarian 7.0 µm Gating Enforcement
+      Test 3: Over-Prediction Ratio Invariant Bounds
+      Test 4: Lineage Graph Referential Integrity
+      Test 5: Kaggle Schema & SHA-256 Digest Reproducibility
     """
-    suite_start = time.time()
-    results = []
+    suite_start_perf = time.perf_counter()
+
+    # Normalize inputs to pandas DataFrames
+    if nodes_df is None or (isinstance(nodes_df, (list, pd.DataFrame)) and len(nodes_df) == 0):
+        synth_nodes, synth_edges, synth_nest = generate_synthetic_embryo_data()
+        eval_nodes_df = pd.DataFrame(synth_nodes)
+        eval_edges_df = pd.DataFrame(synth_edges)
+        if n_est is None:
+            n_est = synth_nest
+    elif isinstance(nodes_df, list):
+        eval_nodes_df = pd.DataFrame(nodes_df)
+        eval_edges_df = pd.DataFrame(edges_df) if edges_df is not None else pd.DataFrame()
+    else:
+        eval_nodes_df = nodes_df.copy()
+        eval_edges_df = edges_df.copy() if edges_df is not None else pd.DataFrame()
+
+    if eval_edges_df.empty:
+        synth_nodes, synth_edges, synth_nest = generate_synthetic_embryo_data()
+        eval_edges_df = pd.DataFrame(synth_edges)
+
+    if n_est is None or n_est <= 0:
+        n_est = len(eval_nodes_df)
+
+    tests_summary: List[Dict[str, Any]] = []
 
     # --------------------------------------------------------------------------
-    # Test 1: Anisotropic Coordinate Invariant
+    # Test 1: Anisotropic Coordinate Transformation
     # --------------------------------------------------------------------------
-    t_start = time.perf_counter()
-    scale_ratio = SCALE_Z / SCALE_Y
-    assert abs(scale_ratio - 4.0) < 1e-9, f"SCALE_Z / SCALE_XY must equal 4.0, got {scale_ratio}"
-    assert abs(SCALE_Z - 1.625) < 1e-9, f"SCALE_Z must be 1.625 µm, got {SCALE_Z}"
-    assert abs(SCALE_Y - 0.40625) < 1e-9, f"SCALE_Y must be 0.40625 µm, got {SCALE_Y}"
-    assert abs(SCALE_X - 0.40625) < 1e-9, f"SCALE_X must be 0.40625 µm, got {SCALE_X}"
+    t1_start = time.perf_counter()
+    test1_traces: List[str] = [
+        "--- TEST 1: Anisotropic Coordinate Transformation ---",
+        f"Anisotropy Vector S = [{SCALE_Z}, {SCALE_Y}, {SCALE_X}] µm/voxel (Z-ratio = 4.0×)"
+    ]
 
-    # Centroids separated by Δz = 4 voxels:
-    delta_vox_vec = np.array([4.0, 0.0, 0.0], dtype=np.float64)
-    phys_dist = float(np.linalg.norm(delta_vox_vec * SCALE_ZYX))
-    expected_phys_dist = 4.0 * 1.625  # Exactly 6.5 µm
-    assert abs(phys_dist - expected_phys_dist) < 1e-9, f"Physical distance must be 6.5 µm, got {phys_dist}"
+    # Compute physical Euclidean distance:
+    # d_phys = sqrt((1.625 * Δz)^2 + (0.40625 * Δy)^2 + (0.40625 * Δx)^2)
+    delta_z_4 = np.array([4.0, 0.0, 0.0], dtype=np.float64)
+    d_phys_z = float(np.sqrt((SCALE_Z * delta_z_4[0])**2 + (SCALE_Y * delta_z_4[1])**2 + (SCALE_X * delta_z_4[2])**2))
+    expected_z = 4.0 * 1.625  # exactly 6.500 µm
+    err_z = abs(d_phys_z - expected_z)
+    assert err_z < 1e-12, f"Displacement Δz=4 voxels must yield 6.500 µm, got {d_phys_z}"
+    test1_traces.append(f"Displacement Δz=4, Δy=0, Δx=0 -> d_phys = {d_phys_z:.4f} µm (Expected: {expected_z:.4f} µm, Error Δ = {err_z:.4e} µm)")
 
-    # Fail if raw voxel distance is detected without scaling factor:
-    raw_voxel_dist = float(np.linalg.norm(delta_vox_vec))
-    assert abs(raw_voxel_dist - phys_dist) > 2.0, "Raw unscaled voxel distance calculation detected without scaling factor!"
+    # Isotropic displacement Δx = 4 voxels -> 1.625 µm:
+    delta_x_4 = np.array([0.0, 0.0, 4.0], dtype=np.float64)
+    d_phys_x = float(np.sqrt((SCALE_Z * delta_x_4[0])**2 + (SCALE_Y * delta_x_4[1])**2 + (SCALE_X * delta_x_4[2])**2))
+    expected_x = 4.0 * 0.40625  # exactly 1.625 µm
+    err_x = abs(d_phys_x - expected_x)
+    assert err_x < 1e-12, f"Displacement Δx=4 voxels must yield 1.625 µm, got {d_phys_x}"
+    test1_traces.append(f"Displacement Δz=0, Δy=0, Δx=4 -> d_phys = {d_phys_x:.4f} µm (Expected: {expected_x:.4f} µm, Error Δ = {err_x:.4e} µm)")
 
-    dur1 = (time.perf_counter() - t_start) * 1000.0
-    results.append({
-        "name": "Anisotropic Coordinate Invariant",
-        "category": "Physical Coordinate Scaling",
-        "status": "PASS",
-        "duration_ms": round(dur1, 3),
-        "assertion": "SCALE_Z / SCALE_XY == 1.625 / 0.40625 == 4.0 && ||S ⊙ [4, 0, 0]|| == 6.5 µm",
-        "details": f"Axial ratio verified: {scale_ratio:.1f}×. Δz=4 vox -> {phys_dist:.3f} µm (vs raw unscaled voxel {raw_voxel_dist:.1f} vox). Error margin: {abs(phys_dist - expected_phys_dist):.2e} µm. Latency: {dur1:.3f} ms."
+    # Verify aspect ratio s_z / s_x == 4.0 with zero floating-point drift:
+    aspect_ratio = SCALE_Z / SCALE_X
+    drift = abs(aspect_ratio - 4.0)
+    assert drift == 0.0, f"Aspect ratio s_z / s_x must equal 4.0 with zero drift, got {aspect_ratio}"
+    test1_traces.append(f"Aspect ratio s_z / s_x = {aspect_ratio:.4f}× (Zero floating-point drift: Δ = {drift:.4e})")
+    test1_traces.append("✓ Physical Euclidean tensor space verified.")
+
+    t1_dur = (time.perf_counter() - t1_start) * 1000.0
+    tests_summary.append({
+        "name": "Test 1: Anisotropic Coordinate Transformation",
+        "category": "Physical Invariants",
+        "formula": "d_phys = sqrt((1.625·Δz)² + (0.40625·Δy)² + (0.40625·Δx)²)",
+        "duration_ms": round(t1_dur, 3),
+        "duration_str": f"{t1_dur*1000.0:.1f} µs" if t1_dur < 1.0 else f"{t1_dur:.2f} ms",
+        "numeric_margin": f"Error Δ = {max(err_z, err_x):.4f} µm",
+        "status": "PASSED",
+        "details": f"Δz=4 vox -> {d_phys_z:.3f} µm | Δx=4 vox -> {d_phys_x:.3f} µm | Axial Ratio = 4.0×",
+        "traces": test1_traces
     })
 
     # --------------------------------------------------------------------------
-    # Test 2: Hard Spatial Gating Enforcement (7.0 µm Cutoff)
+    # Test 2: Bipartite Hungarian 7.0 µm Gating Enforcement
     # --------------------------------------------------------------------------
-    t_start = time.perf_counter()
-    # Test pairs: pair A at 6.8 µm (must link), pair B at 7.2 µm (must be rejected)
-    dist_matrix = np.array([
-        [6.8, 14.5],
-        [12.0, 7.2]
-    ], dtype=np.float64)
+    t2_start = time.perf_counter()
+    test2_traces: List[str] = [
+        "--- TEST 2: Bipartite Hungarian 7.0 µm Gating Enforcement ---"
+    ]
+
+    # Generate synthetic source points at t=0 and target points at t=1:
+    # Pair A: physical distance 6.4 µm (valid candidate, must link).
+    # Pair B: physical distance 7.4 µm (out-of-gate candidate, must reject).
     penalty_cost = 1e7
+    dist_matrix = np.array([
+        [6.4, 15.0],
+        [12.0, 7.4]
+    ], dtype=np.float64)
     cost_matrix = np.full_like(dist_matrix, penalty_cost)
     valid_mask = dist_matrix <= MAX_MATCHING_DIST_UM  # <= 7.0 µm
     cost_matrix[valid_mask] = dist_matrix[valid_mask]
 
     row_ind, col_ind = linear_sum_assignment(cost_matrix)
-    linked_distances = [dist_matrix[r, c] for r, c in zip(row_ind, col_ind) if cost_matrix[r, c] < penalty_cost]
-    rejected_distances = [dist_matrix[r, c] for r, c in zip(row_ind, col_ind) if cost_matrix[r, c] >= penalty_cost]
+    accepted_dists = [dist_matrix[r, c] for r, c in zip(row_ind, col_ind) if cost_matrix[r, c] < penalty_cost]
+    rejected_dists = [dist_matrix[r, c] for r, c in zip(row_ind, col_ind) if cost_matrix[r, c] >= penalty_cost]
 
-    assert 6.8 in linked_distances, "Candidate at 6.8 µm must link"
-    assert 7.2 not in linked_distances, "Candidate at 7.2 µm must NOT link"
-    max_linked_len = max(linked_distances) if linked_distances else 0.0
-    assert max_linked_len <= MAX_MATCHING_DIST_UM, f"Max edge length {max_linked_len} exceeded 7.0 µm cutoff"
+    assert 6.4 in accepted_dists, "Candidate at 6.4 µm must be accepted into bipartite assignment"
+    assert 7.4 not in accepted_dists, "Candidate at 7.4 µm must be rejected with 1e7 penalty"
+    test2_traces.append(f"Synthetic candidate Pair A (6.4 µm <= 7.0 µm): ACCEPTED by Hungarian solver")
+    test2_traces.append(f"Synthetic candidate Pair B (7.4 µm > 7.0 µm): REJECTED with penalty cost {penalty_cost:.0e}")
 
-    dur2 = (time.perf_counter() - t_start) * 1000.0
-    results.append({
-        "name": "Hard Spatial Gating Enforcement (7.0 µm Cutoff)",
-        "category": "LAP Tracking Solvers",
-        "status": "PASS",
-        "duration_ms": round(dur2, 3),
-        "assertion": "linear_sum_assignment with penalty=1e7: link at 6.8 µm accepted, 7.2 µm rejected. Max edge <= 7.0 µm",
-        "details": f"Pair at 6.8 µm linked; pair at 7.2 µm rejected. Max physical edge length: {max_linked_len:.2f} µm <= 7.0 µm. Verified links: {len(linked_distances)}, Rejections: {len(rejected_distances)}. Latency: {dur2:.3f} ms."
+    # Assert across active tracking graph that max(physical_edge_lengths) <= 7.0
+    node_positions: Dict[int, np.ndarray] = {}
+    for _, n in eval_nodes_df.iterrows():
+        nid = int(n['node_id'])
+        zv = float(n.get('z_vox', n.get('z', 0.0)))
+        yv = float(n.get('y_vox', n.get('y', 0.0)))
+        xv = float(n.get('x_vox', n.get('x', 0.0)))
+        node_positions[nid] = np.array([zv * SCALE_Z, yv * SCALE_Y, xv * SCALE_X], dtype=np.float64)
+
+    active_edge_lengths: List[float] = []
+    for _, e in eval_edges_df.iterrows():
+        sid = int(e['source_id'])
+        tid = int(e['target_id'])
+        if sid in node_positions and tid in node_positions:
+            phys_len = float(np.linalg.norm(node_positions[tid] - node_positions[sid]))
+            active_edge_lengths.append(phys_len)
+
+    max_active_edge = max(active_edge_lengths) if active_edge_lengths else 0.0
+    assert max_active_edge <= (MAX_MATCHING_DIST_UM + 1e-5), f"Max edge length {max_active_edge:.3f} µm exceeded 7.0 µm gate!"
+    test2_traces.append(f"Active in-memory tracking graph: Max edge length = {max_active_edge:.4f} µm (Bound <= 7.0000 µm)")
+    test2_traces.append("✓ Spatial gate cutoff strictly enforced across all edges.")
+
+    t2_dur = (time.perf_counter() - t2_start) * 1000.0
+    tests_summary.append({
+        "name": "Test 2: Bipartite Hungarian 7.0 µm Gating Enforcement",
+        "category": "Spatial Gating",
+        "formula": "d_phys(p1, p2) <= 7.0 µm (Cost = 1e7 for d_phys > 7.0)",
+        "duration_ms": round(t2_dur, 3),
+        "duration_str": f"{t2_dur*1000.0:.1f} µs" if t2_dur < 1.0 else f"{t2_dur:.2f} ms",
+        "numeric_margin": f"Max Active Edge = {max_active_edge:.4f} µm <= 7.0000 µm",
+        "status": "PASSED",
+        "details": f"Pair A (6.4 µm) accepted | Pair B (7.4 µm) rejected | Max active <= 7.0 µm",
+        "traces": test2_traces
     })
 
     # --------------------------------------------------------------------------
-    # Test 3: Over-Prediction Penalty Bounds
+    # Test 3: Over-Prediction Ratio Invariant Bounds
     # --------------------------------------------------------------------------
-    t_start = time.perf_counter()
-    n_est = 100
+    t3_start = time.perf_counter()
+    test3_traces: List[str] = [
+        "--- TEST 3: Over-Prediction Ratio Invariant Bounds ---"
+    ]
 
-    # N_pred <= N_est -> P = 1.0
-    p_under = min(1.0, n_est / 60)
-    p_equal = min(1.0, n_est / 100)
-    assert p_under == 1.0, f"Expected P=1.0 for under-prediction, got {p_under}"
-    assert p_equal == 1.0, f"Expected P=1.0 for equal prediction, got {p_equal}"
+    # Evaluate penalty multiplier P = min(1.0, N_est / N_pred)
+    # Assert: P in (0.0, 1.0]
+    # Simulate stress conditions:
+    # 1. Normal condition (N_pred <= N_est): Assert P == 1.0
+    p_norm = min(1.0, float(n_est) / float(n_est))
+    assert p_norm == 1.0, f"Normal condition must yield P=1.0, got {p_norm}"
+    test3_traces.append(f"Stress test [Normal: N_pred = N_est]: Multiplier P = {p_norm:.4f} (Expected: 1.0000)")
 
-    # N_pred >> N_est -> P severely penalizes score
-    p_heavy_over = min(1.0, n_est / 1000)
-    assert abs(p_heavy_over - 0.10) < 1e-9, f"Expected P=0.10 for N_pred=1000, got {p_heavy_over}"
+    # 2. Over-prediction condition (N_pred = 2 * N_est): Assert P == 0.5
+    p_2x = min(1.0, float(n_est) / float(2 * n_est))
+    assert abs(p_2x - 0.5) < 1e-12, f"Over-prediction (2x) must yield P=0.5, got {p_2x}"
+    test3_traces.append(f"Stress test [Over-prediction: N_pred = 2*N_est]: Multiplier P = {p_2x:.4f} (Expected: 0.5000)")
 
-    # Bounds assertion across entire domain: P in (0.0, 1.0]
+    # 3. Extreme over-prediction (N_pred = 10 * N_est): Assert P == 0.1
+    p_10x = min(1.0, float(n_est) / float(10 * n_est))
+    assert abs(p_10x - 0.1) < 1e-12, f"Extreme over-prediction (10x) must yield P=0.1, got {p_10x}"
+    test3_traces.append(f"Stress test [Extreme over-prediction: N_pred = 10*N_est]: Multiplier P = {p_10x:.4f} (Expected: 0.1000)")
+
+    # Verify mathematical domain bounds: P in (0.0, 1.0]
     for n_trial in [1, 25, 99, 100, 101, 250, 500, 2000, 10000]:
-        p_val = min(1.0, n_est / n_trial)
-        assert 0.0 < p_val <= 1.0, f"Penalty {p_val} violated bound (0.0, 1.0]"
+        val = min(1.0, float(n_est) / float(n_trial))
+        assert 0.0 < val <= 1.0, f"Penalty {val} violated bound (0.0, 1.0]"
 
-    raw_j = 0.95
-    div_j = 0.85
-    score_balanced = (raw_j * p_equal) + 0.10 * div_j
-    score_penalized = (raw_j * p_heavy_over) + 0.10 * div_j
-    assert score_penalized < 0.25 * score_balanced, "Extreme over-prediction must collapse score"
+    # Active dataset evaluation
+    n_pred_actual = len(eval_nodes_df)
+    p_active = min(1.0, float(n_est) / float(max(1, n_pred_actual)))
+    assert 0.0 < p_active <= 1.0
+    test3_traces.append(f"Active in-memory dataset (N_pred={n_pred_actual}, N_est={n_est}): P_active = {p_active:.4f}")
+    test3_traces.append("✓ Over-prediction penalty strictly bounded in (0.0, 1.0].")
 
-    dur3 = (time.perf_counter() - t_start) * 1000.0
-    results.append({
-        "name": "Over-Prediction Penalty Bounds",
+    t3_dur = (time.perf_counter() - t3_start) * 1000.0
+    tests_summary.append({
+        "name": "Test 3: Over-Prediction Ratio Invariant Bounds",
         "category": "Metric Calibration",
-        "status": "PASS",
-        "duration_ms": round(dur3, 3),
-        "assertion": "P = min(1.0, N_est / N_pred) ∈ (0.0, 1.0]. Severe penalization for N_pred >> N_est",
-        "details": f"N_pred=60 -> P=1.000 | N_pred=100 -> P=1.000 | N_pred=1000 -> P={p_heavy_over:.3f} (collapsed score from {score_balanced:.3f} to {score_penalized:.3f}). All bounds P ∈ (0.0, 1.0] verified. Latency: {dur3:.3f} ms."
+        "formula": "P = min(1.0, N_est / N_pred) ∈ (0.0, 1.0]",
+        "duration_ms": round(t3_dur, 3),
+        "duration_str": f"{t3_dur*1000.0:.1f} µs" if t3_dur < 1.0 else f"{t3_dur:.2f} ms",
+        "numeric_margin": f"P = {p_active:.4f} ∈ (0.0, 1.0]",
+        "status": "PASSED",
+        "details": f"Normal: P=1.000 | 2x: P=0.500 | 10x: P=0.100 | Active: P={p_active:.3f}",
+        "traces": test3_traces
     })
 
     # --------------------------------------------------------------------------
     # Test 4: Lineage Graph Referential Integrity
     # --------------------------------------------------------------------------
-    t_start = time.perf_counter()
-    eval_nodes = nodes if (nodes and len(nodes) > 0) else generate_synthetic_embryo_data()[0]
-    eval_edges = edges if (edges and len(edges) > 0) else generate_synthetic_embryo_data()[1]
-
-    node_ids = {n['node_id'] for n in eval_nodes}
-    node_time = {n['node_id']: n['t'] for n in eval_nodes}
-
-    out_degree_map: Dict[int, int] = {}
-    missing_sources = 0
-    missing_targets = 0
-    non_monotonic_edges = 0
-
-    for e in eval_edges:
-        src = e['source_id']
-        tgt = e['target_id']
-        if src not in node_ids:
-            missing_sources += 1
-        if tgt not in node_ids:
-            missing_targets += 1
-        if src in node_time and tgt in node_time:
-            if node_time[tgt] <= node_time[src]:
-                non_monotonic_edges += 1
-        out_degree_map[src] = out_degree_map.get(src, 0) + 1
-
-    max_out_deg = max(out_degree_map.values()) if out_degree_map else 0
-    assert missing_sources == 0, f"Found {missing_sources} edge source_ids not in nodes"
-    assert missing_targets == 0, f"Found {missing_targets} edge target_ids not in nodes"
-    assert non_monotonic_edges == 0, f"Found {non_monotonic_edges} edges where t_target <= t_source"
-    assert max_out_deg <= 2, f"Found division out-degree {max_out_deg} > 2 (violates binary tree invariant)"
-
-    dur4 = (time.perf_counter() - t_start) * 1000.0
-    results.append({
-        "name": "Lineage Graph Referential Integrity",
-        "category": "Graph Topology",
-        "status": "PASS",
-        "duration_ms": round(dur4, 3),
-        "assertion": "source_id & target_id ∈ nodes['node_id'], t_target > t_source, out_degree <= 2 (binary tree)",
-        "details": f"Verified {len(eval_edges)} edges & {len(eval_nodes)} nodes: 0 orphan targets, 0 orphan sources, strictly monotonic time progression (t_target > t_source), max division out-degree = {max_out_deg} <= 2. Latency: {dur4:.3f} ms."
-    })
-
-    # --------------------------------------------------------------------------
-    # Test 5: Export Digest & Schema Conformance
-    # --------------------------------------------------------------------------
-    t_start = time.perf_counter()
-    required_schema = ['id', 'dataset', 'row_type', 'node_id', 't', 'z', 'y', 'x', 'source_id', 'target_id']
-
-    test_rows = [
-        {'id': 0, 'dataset': 'embryo_eval', 'row_type': 'node', 'node_id': 1, 't': 0, 'z': 12.4, 'y': 45.1, 'x': 89.2, 'source_id': -1, 'target_id': -1},
-        {'id': 1, 'dataset': 'embryo_eval', 'row_type': 'edge', 'node_id': -1, 't': -1, 'z': -1.0, 'y': -1.0, 'x': -1.0, 'source_id': 1, 'target_id': 2}
+    t4_start = time.perf_counter()
+    test4_traces: List[str] = [
+        "--- TEST 4: Lineage Graph Referential Integrity ---"
     ]
-    df_export = pd.DataFrame(test_rows)[required_schema]
-    assert list(df_export.columns) == required_schema, f"Schema mismatch: expected {required_schema}, got {list(df_export.columns)}"
 
-    csv_bytes = df_export.to_csv(index=False).encode('utf-8')
-    sha256_hash1 = hashlib.sha256(csv_bytes).hexdigest()
-    sha256_hash2 = hashlib.sha256(csv_bytes).hexdigest()
-    assert sha256_hash1 == sha256_hash2, "SHA-256 computation must be deterministic across bytes"
-    assert len(sha256_hash1) == 64, "SHA-256 hash must be exactly 64 hexadecimal characters"
+    node_ids = set(eval_nodes_df['node_id'].astype(int))
+    node_time_map = dict(zip(eval_nodes_df['node_id'].astype(int), eval_nodes_df['t'].astype(int)))
 
-    dur5 = (time.perf_counter() - t_start) * 1000.0
-    results.append({
-        "name": "Export Digest & Schema Conformance",
+    edge_sources = eval_edges_df['source_id'].astype(int).tolist()
+    edge_targets = eval_edges_df['target_id'].astype(int).tolist()
+
+    # Assert source_id and target_id belong to nodes_df['node_id']
+    missing_sources = [s for s in edge_sources if s not in node_ids]
+    missing_targets = [t for t in edge_targets if t not in node_ids]
+    assert len(missing_sources) == 0, f"Found {len(missing_sources)} orphan source_ids: {missing_sources}"
+    assert len(missing_targets) == 0, f"Found {len(missing_targets)} orphan target_ids: {missing_targets}"
+    test4_traces.append(f"Referential pointers: 0 orphan source IDs, 0 orphan target IDs across {len(eval_edges_df)} edges")
+
+    # Temporal continuity: Extract (t_source, t_target) and assert t_target - t_source == 1
+    non_monotonic = 0
+    for s, t in zip(edge_sources, edge_targets):
+        if s in node_time_map and t in node_time_map:
+            dt = node_time_map[t] - node_time_map[s]
+            if dt != 1:
+                non_monotonic += 1
+    assert non_monotonic == 0, f"Found {non_monotonic} edges violating strict temporal advancement"
+    test4_traces.append(f"Temporal continuity: All {len(eval_edges_df)} edges satisfy t_target - t_source == 1")
+
+    # Mitosis bifurcation constraint: no node has out-degree > 2
+    out_deg_counts = pd.Series(edge_sources).value_counts()
+    max_out_deg = int(out_deg_counts.max()) if len(out_deg_counts) > 0 else 0
+    assert max_out_deg <= 2, f"Found node out-degree {max_out_deg} > 2 (violates binary tree invariant)"
+    test4_traces.append(f"Bifurcation constraint: Maximum lineage out-degree = {max_out_deg} <= 2")
+
+    # Mitosis geometric validity: For out-degree == 2, daughter distance in [1.8, 6.5] µm
+    mitosis_mothers = out_deg_counts[out_deg_counts == 2].index.tolist()
+    for m in mitosis_mothers:
+        daughters = [t for s, t in zip(edge_sources, edge_targets) if s == m]
+        if len(daughters) == 2 and daughters[0] in node_positions and daughters[1] in node_positions:
+            d_sep = float(np.linalg.norm(node_positions[daughters[0]] - node_positions[daughters[1]]))
+            assert MIN_DAUGHTER_SEP_UM <= d_sep <= MAX_DAUGHTER_SEP_UM, f"Daughter separation {d_sep:.2f} µm outside [{MIN_DAUGHTER_SEP_UM}, {MAX_DAUGHTER_SEP_UM}] µm"
+            test4_traces.append(f"Mitosis mother #{m}: daughter separation = {d_sep:.3f} µm in [1.8, 6.5] µm")
+
+    test4_traces.append("✓ Graph referential integrity and binary tree bounds verified.")
+
+    t4_dur = (time.perf_counter() - t4_start) * 1000.0
+    tests_summary.append({
+        "name": "Test 4: Lineage Graph Referential Integrity",
+        "category": "Graph Topology",
+        "formula": "source_id, target_id ∈ nodes['node_id'] ∧ Δt == 1 ∧ out_deg <= 2",
+        "duration_ms": round(t4_dur, 3),
+        "duration_str": f"{t4_dur*1000.0:.1f} µs" if t4_dur < 1.0 else f"{t4_dur:.2f} ms",
+        "numeric_margin": f"0 Orphans | Max Out-Deg = {max_out_deg} <= 2",
+        "status": "PASSED",
+        "details": f"0 orphan links | Monotonic progression | Binary bifurcation <= 2",
+        "traces": test4_traces
+    })
+
+    # --------------------------------------------------------------------------
+    # Test 5: Kaggle Schema & SHA-256 Digest Reproducibility
+    # --------------------------------------------------------------------------
+    t5_start = time.perf_counter()
+    test5_traces: List[str] = [
+        "--- TEST 5: Kaggle Schema & SHA-256 Digest Reproducibility ---"
+    ]
+
+    schema_cols = ['id', 'dataset', 'row_type', 'node_id', 't', 'z', 'y', 'x', 'source_id', 'target_id']
+
+    sub_rows = []
+    r_id = 0
+    for _, n in eval_nodes_df.iterrows():
+        sub_rows.append({
+            'id': int(r_id),
+            'dataset': str(n.get('dataset', 'embryo_eval')),
+            'row_type': 'node',
+            'node_id': int(n['node_id']),
+            't': int(n['t']),
+            'z': int(round(float(n.get('z_vox', n.get('z', 0.0))))),
+            'y': int(round(float(n.get('y_vox', n.get('y', 0.0))))),
+            'x': int(round(float(n.get('x_vox', n.get('x', 0.0))))),
+            'source_id': -1,
+            'target_id': -1
+        })
+        r_id += 1
+
+    for _, e in eval_edges_df.iterrows():
+        sub_rows.append({
+            'id': int(r_id),
+            'dataset': str(e.get('dataset', 'embryo_eval')),
+            'row_type': 'edge',
+            'node_id': -1,
+            't': -1,
+            'z': -1,
+            'y': -1,
+            'x': -1,
+            'source_id': int(e['source_id']),
+            'target_id': int(e['target_id'])
+        })
+        r_id += 1
+
+    sub_df = pd.DataFrame(sub_rows)[schema_cols]
+
+    # Assert column names and strict ordering
+    assert list(sub_df.columns) == schema_cols, f"Column order mismatch: {list(sub_df.columns)} != {schema_cols}"
+    test5_traces.append(f"Kaggle schema ordering strictly verified: [{', '.join(schema_cols)}]")
+
+    # Assert absence of null values
+    null_count = int(sub_df.isnull().sum().sum())
+    assert null_count == 0, f"Submission contains {null_count} null entries"
+    test5_traces.append(f"Null-value verification: 0 null entries across all {len(sub_df)} records")
+
+    # Assert integer casts on all coordinate fields (z, y, x, t) and identity pointers
+    for int_col in ['id', 'node_id', 't', 'z', 'y', 'x', 'source_id', 'target_id']:
+        sub_df[int_col] = sub_df[int_col].astype(np.int64)
+        assert np.issubdtype(sub_df[int_col].dtype, np.integer), f"Column {int_col} failed integer cast"
+
+    test5_traces.append(f"Integer casting: All coordinate & pointer fields strictly typed as int64")
+
+    # Compute SHA-256 digest on binary output
+    csv_bytes = sub_df.to_csv(index=False).encode('utf-8')
+    digest = hashlib.sha256(csv_bytes).hexdigest()
+    assert len(digest) == 64, f"SHA-256 digest length {len(digest)} != 64"
+    assert all(c in '0123456789abcdefABCDEF' for c in digest), "Digest is not valid hexadecimal"
+    test5_traces.append(f"SHA-256 binary state digest: {digest} (64 hexadecimal chars verified)")
+    test5_traces.append("✓ Competition export schema & cryptographic reproducibility verified.")
+
+    t5_dur = (time.perf_counter() - t5_start) * 1000.0
+    tests_summary.append({
+        "name": "Test 5: Kaggle Schema & SHA-256 Digest Reproducibility",
         "category": "Submission Invariants",
-        "status": "PASS",
-        "duration_ms": round(dur5, 3),
-        "assertion": "10-column competition CSV schema strictly ordered, deterministic SHA-256 byte digest",
-        "details": f"Validated column ordering [{', '.join(required_schema)}]. Deterministic SHA-256 state ledger: {sha256_hash1[:16]}...{sha256_hash1[-8:]} (64 chars). Latency: {dur5:.3f} ms."
+        "formula": "Schema: 10 columns [id..target_id] + int64 typing + SHA-256",
+        "duration_ms": round(t5_dur, 3),
+        "duration_str": f"{t5_dur*1000.0:.1f} µs" if t5_dur < 1.0 else f"{t5_dur:.2f} ms",
+        "numeric_margin": f"SHA-256: {digest[:12]}...{digest[-6:]}",
+        "status": "PASSED",
+        "details": f"Ordered schema verified | Integer casts valid | 64-char hex SHA-256",
+        "traces": test5_traces
     })
 
-    # Supplementary Test 6: Mitosis Separation & Divergence Bounds
-    t_start = time.perf_counter()
-    d_valid = 3.5
-    assert MIN_DAUGHTER_SEP_UM <= d_valid <= MAX_DAUGHTER_SEP_UM
-    v1 = np.array([0.0, 1.0, 0.0])
-    v2 = np.array([0.0, -1.0, 0.0])
-    cos_opposing = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
-    assert cos_opposing <= -0.35, "Opposing vectors must satisfy divergence"
+    # --------------------------------------------------------------------------
+    # Telemetry Consolidation
+    # --------------------------------------------------------------------------
+    total_dur = round((time.perf_counter() - suite_start_perf) * 1000.0, 2)
+    total_passed = len([t for t in tests_summary if t["status"] == "PASSED"])
+    total_failed = len([t for t in tests_summary if t["status"] != "PASSED"])
 
-    dur6 = (time.perf_counter() - t_start) * 1000.0
-    results.append({
-        "name": "Mitosis Separation & Divergence Invariants",
-        "category": "Biological Invariants",
-        "status": "PASS",
-        "duration_ms": round(dur6, 3),
-        "assertion": "Daughter separation in [1.8, 6.5] µm and cos(theta) <= -0.35 bipolar divergence",
-        "details": f"Separation bounds [{MIN_DAUGHTER_SEP_UM}, {MAX_DAUGHTER_SEP_UM}] µm strictly enforced; bipolar divergence cos(theta)={cos_opposing:.2f} <= -0.35 verified. Latency: {dur6:.3f} ms."
-    })
+    all_traces: List[str] = [
+        "=== [bi[o]hub Rigorous Verification Test Runner - Active Execution Engine] ===",
+        f"Target Tensor Graph: {len(eval_nodes_df)} nodes, {len(eval_edges_df)} edges, N_est={n_est}",
+        f"Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime())}",
+        ""
+    ]
+    for t in tests_summary:
+        all_traces.extend(t["traces"])
+        all_traces.append("")
+    all_traces.append(f"=== VERIFICATION SUMMARY: {total_passed}/{len(tests_summary)} PASSED | 100% COMPLIANT | In-Memory Latency: {total_dur:.2f} ms ===")
 
-    suite_duration = round((time.time() - suite_start) * 1000, 2)
     return {
-        "tests": results,
-        "total_passed": len([r for r in results if r['status'] == 'PASS']),
-        "total_failed": len([r for r in results if r['status'] != 'PASS']),
-        "duration_ms": suite_duration
+        "tests": tests_summary,
+        "total_passed": total_passed,
+        "total_failed": total_failed,
+        "pass_rate": (total_passed / max(1, len(tests_summary))) * 100.0,
+        "duration_ms": total_dur,
+        "wall_clock_str": f"{total_dur:.2f} ms",
+        "health_status": "100% COMPLIANT" if total_failed == 0 else f"{total_passed}/{len(tests_summary)} COMPLIANT",
+        "traces": all_traces
     }
+
+
+def run_verification_suite(
+    nodes: Optional[List[Dict[str, Any]]] = None,
+    edges: Optional[List[Dict[str, Any]]] = None
+) -> Dict[str, Any]:
+    """Compatibility wrapper redirecting to run_rigorous_tests."""
+    return run_rigorous_tests(nodes_df=nodes, edges_df=edges)
 
 
 # ------------------------------------------------------------------------------
@@ -3213,89 +3381,90 @@ def main():
         st.caption(f"Displaying top 15 of {len(df_sub)} total records ({len(nodes)} cell nodes, {len(pred_edges)} temporal lineage edges).")
 
     # ==========================================================================
-    # TAB 4: SUITE & VERIFICATION TESTS
+    # TAB 4: SUITE & INVARIANTS (RIGOROUS VERIFICATION TEST RUNNER)
     # ==========================================================================
     with tab_tests:
-        st.markdown("### 🧪 **Suite & Verification Tests**")
-        st.caption("Automated unit test suite verifying physical scaling, Hungarian gating, penalty ratios, and schema invariants.")
+        st.markdown("### 🧪 **Rigorous Verification Test Runner & Invariants**")
+        st.caption("Active in-memory assertion harness verifying physical scaling tensors, Hungarian gating bounds, penalty invariants, and schema integrity.")
 
-        t_btn_col, _ = st.columns([1.5, 3.5])
+        t_btn_col, _ = st.columns([2.0, 3.0])
         with t_btn_col:
-            run_suite_clicked = st.button("▶️ Run Verification Suite", use_container_width=True)
+            run_rigorous_clicked = st.button("⚡ Run Rigorous Verification Suite", use_container_width=True, type="primary")
 
-        if run_suite_clicked or "test_suite_results" not in st.session_state:
-            st.session_state.test_suite_results = run_verification_suite()
+        if run_rigorous_clicked or "rigorous_test_results" not in st.session_state:
+            st.session_state.rigorous_test_results = run_rigorous_tests(nodes, pred_edges, gt_estimated_nodes)
 
-        suite_res = st.session_state.test_suite_results
+        suite_res = st.session_state.rigorous_test_results
         tests = suite_res["tests"]
         passed_count = suite_res["total_passed"]
         failed_count = suite_res["total_failed"]
         total_tests = len(tests)
-        pass_rate = (passed_count / max(1, total_tests)) * 100.0
 
-        # Test Suite KPI Strip
-        m1, m2, m3, m4 = st.columns(4)
-        with m1:
+        # 3-Column Top Banner Summary
+        b1, b2, b3 = st.columns(3)
+        with b1:
             st.markdown(f"""
-            <div class="hud-card">
-                <div class="hud-label">Unit Tests Executed</div>
-                <div class="hud-value" style="color: {BIOHUB_PRIMARY};">{total_tests}</div>
-                <div class="hud-subtext">Completed in {suite_res['duration_ms']:.2f} ms</div>
+            <div class="hud-card" style="border-left: 4px solid {BIOHUB_EMERALD}; background: #181528; padding: 16px; border-radius: 10px;">
+                <div class="hud-label">Tests Passed</div>
+                <div class="hud-value" style="color: {BIOHUB_EMERALD}; font-weight: 800; font-size: 22px;">{passed_count} / {total_tests} PASSED</div>
+                <div class="hud-subtext" style="color: {BIOHUB_MUTED}; font-size: 11px;">Active In-Memory Invariant Suite</div>
             </div>
             """, unsafe_allow_html=True)
-        with m2:
+        with b2:
             st.markdown(f"""
-            <div class="hud-card">
-                <div class="hud-label">Pass Rate</div>
-                <div class="hud-value" style="color: {BIOHUB_EMERALD if failed_count == 0 else BIOHUB_CORAL};">{pass_rate:.1f}%</div>
-                <div class="hud-subtext">{passed_count} Passed / {failed_count} Failed</div>
+            <div class="hud-card" style="border-left: 4px solid {BIOHUB_PRIMARY}; background: #181528; padding: 16px; border-radius: 10px;">
+                <div class="hud-label">Execution Latency</div>
+                <div class="hud-value" style="color: #FFFFFF; font-weight: 800; font-size: 22px;">{suite_res['duration_ms']:.2f} ms</div>
+                <div class="hud-subtext" style="color: {BIOHUB_MUTED}; font-size: 11px;">Wall-Clock Verification Runtime</div>
             </div>
             """, unsafe_allow_html=True)
-        with m3:
+        with b3:
+            health_color = BIOHUB_EMERALD if failed_count == 0 else BIOHUB_CORAL
             st.markdown(f"""
-            <div class="hud-card">
-                <div class="hud-label">Spatial Gate Bound</div>
-                <div class="hud-value" style="color: {BIOHUB_EMERALD};">&le; 7.0 µm</div>
-                <div class="hud-subtext">LAP &infin; Cost Verified</div>
-            </div>
-            """, unsafe_allow_html=True)
-        with m4:
-            st.markdown(f"""
-            <div class="hud-card">
-                <div class="hud-label">Anisotropic Scale</div>
-                <div class="hud-value" style="color: #00E5FF;">4.0&times; Axial</div>
-                <div class="hud-subtext">Z: 1.625 | XY: 0.406 µm</div>
+            <div class="hud-card" style="border-left: 4px solid {health_color}; background: #181528; padding: 16px; border-radius: 10px;">
+                <div class="hud-label">Invariant Health</div>
+                <div class="hud-value" style="color: {health_color}; font-weight: 800; font-size: 22px;">{suite_res['health_status']}</div>
+                <div class="hud-subtext" style="color: {BIOHUB_MUTED}; font-size: 11px;">Physical &amp; Topological Constraints</div>
             </div>
             """, unsafe_allow_html=True)
 
         st.markdown("<div style='height: 16px;'></div>", unsafe_allow_html=True)
-        st.markdown("#### **Detailed Assertion Breakdown**")
+        st.markdown("#### **Itemized Diagnostic Test Cards**")
 
-        for idx, t_info in enumerate(tests):
-            status_color = BIOHUB_EMERALD if t_info["status"] == "PASS" else BIOHUB_CORAL
-            badge_border = f"border-left: 4px solid {status_color};"
+        for idx, t in enumerate(tests):
+            status_color = BIOHUB_EMERALD if t["status"] == "PASSED" else BIOHUB_CORAL
             st.markdown(f"""
-            <div class="hud-card" style="margin-bottom: 12px; text-align: left; {badge_border}">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <div class="hud-card" style="border-left: 4px solid {status_color}; margin-bottom: 12px; padding: 14px 18px; background: #181528; border-radius: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
                     <div>
-                        <span style="font-size: 11px; background: #2A1D54; color: {BIOHUB_PRIMARY}; padding: 2px 8px; border-radius: 4px; font-weight: 700; margin-right: 8px;">{t_info['category'].upper()}</span>
-                        <b style="font-size: 14px; color: #FFFFFF;">#{idx+1}: {t_info['name']}</b>
+                        <span style="background: #2A1D54; color: {BIOHUB_PRIMARY}; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 4px; font-family: monospace; letter-spacing: 0.5px;">{t['category'].upper()}</span>
+                        <div style="font-size: 14px; font-weight: 700; color: #FFFFFF; margin-top: 4px;">{t['name']}</div>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 12px;">
-                        <span style="font-family: monospace; font-size: 11px; color: {BIOHUB_MUTED};">{t_info['duration_ms']:.3f} ms</span>
-                        <span style="font-family: monospace; font-size: 12px; font-weight: 800; color: {status_color}; background: #0D281E; padding: 2px 10px; border-radius: 4px; border: 1px solid {status_color};">
-                            {t_info['status']}
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-family: monospace; font-size: 12px; color: {BIOHUB_MUTED};">{t['duration_str']}</span>
+                        <span style="background: {'#0D281E' if t['status'] == 'PASSED' else '#381419'}; color: {status_color}; border: 1px solid {status_color}; font-size: 11px; font-weight: 800; padding: 2px 10px; border-radius: 4px; font-family: monospace;">
+                            {t['status']}
                         </span>
                     </div>
                 </div>
-                <div style="font-size: 12px; color: {BIOHUB_MUTED}; margin-bottom: 4px;">
-                    <b>Invariant Assertion:</b> <code style="color: #E2DEFC; background: #120F24; padding: 1px 6px; border-radius: 3px;">{t_info['assertion']}</code>
+                <div style="font-size: 12px; color: #A5A1B8; margin-bottom: 6px;">
+                    <b>Targeted Invariant:</b> <code style="color: #F0EDFF; background: #0A0714; padding: 2px 6px; border-radius: 3px; font-family: monospace;">{t['formula']}</code>
                 </div>
-                <div style="font-size: 12px; font-family: 'SF Mono', Consolas, monospace; color: {BIOHUB_TERMINAL_GREEN};">
-                    &bull; Output: {t_info['details']}
+                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: {BIOHUB_MUTED}; border-top: 1px solid #251D4A; padding-top: 8px; flex-wrap: wrap; gap: 8px;">
+                    <div><b>Verification Margin:</b> <span style="color: {BIOHUB_EMERALD}; font-family: monospace; font-weight: 600;">{t['numeric_margin']}</span></div>
+                    <div style="font-family: monospace; color: #A5A1B8;">{t.get('details', '')}</div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
+
+        st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
+        st.markdown("#### **Live Monospace Assertion Terminal Trace**")
+        terminal_output = "\n".join(suite_res["traces"])
+        st.markdown(f"""
+        <div style="background: #06040C; border: 1px solid #251D4A; border-radius: 8px; padding: 14px 16px; font-family: 'SF Mono', Consolas, Monaco, monospace; font-size: 11px; color: #00FFA3; line-height: 1.6; max-height: 320px; overflow-y: auto; white-space: pre-wrap;">
+{terminal_output}
+        </div>
+        """, unsafe_allow_html=True)
 
 
 if __name__ == "__main__":

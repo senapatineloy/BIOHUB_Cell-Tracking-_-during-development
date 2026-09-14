@@ -1,14 +1,18 @@
 import React from 'react';
 import { Target, Layers, ShieldCheck, Cpu, AlertOctagon, Flame } from 'lucide-react';
 import { PipelineLatencyChart } from './PipelineLatencyChart';
+import { RigorousVerificationRunner } from './RigorousVerificationRunner';
 
 export const EngineeringPrinciples: React.FC = () => {
   return (
     <div className="space-y-6">
-      {/* 1. Real-Time Recharts Latency Profiler Across Dataset Scales */}
+      {/* 1. Rigorous Automated Invariant Test Runner Module */}
+      <RigorousVerificationRunner />
+
+      {/* 2. Real-Time Recharts Latency Profiler Across Dataset Scales */}
       <PipelineLatencyChart />
 
-      {/* 2. Core Architectural Principles & Mitigation Cards */}
+      {/* 3. Core Architectural Principles & Mitigation Cards */}
       <div className="flex flex-col bg-[#181528] rounded-xl border border-[#352C58] overflow-hidden shadow-2xl">
         {/* Header */}
         <div className="flex items-center gap-2.5 px-5 py-3.5 bg-[#1F1A35] border-b border-[#352C58]">

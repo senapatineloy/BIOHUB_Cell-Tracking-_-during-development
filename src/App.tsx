@@ -249,7 +249,7 @@ export default function App() {
             }`}
           >
             <ShieldCheck className="w-4 h-4 text-[#A259FF]" />
-            🧪 Engineering Principles &amp; Invariants
+            🧪 Test Suite &amp; Invariants
           </button>
         </div>
       </header>
