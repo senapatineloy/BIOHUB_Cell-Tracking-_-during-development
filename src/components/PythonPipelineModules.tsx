@@ -57,9 +57,21 @@ import torch.nn.functional as F
 SCALE_ZYX = np.array([1.625, 0.40625, 0.40625], dtype=np.float64)  # ~4:1 anisotropy
 MAX_MATCHING_DISTANCE_UM = 7.0  # Strict spatial gating cutoff
 MIN_CENTROID_SEPARATION_UM = 3.5  # Suppress double-detection of nuclei
-MIN_DAUGHTER_SEPARATION_UM = 1.8  # Physical cleavage separation gate
-MAX_DAUGHTER_SEPARATION_UM = 6.5
+
+# v30 Grandmaster Empirical Cytokinesis & Motion Gates
+MOTION_RELINK_TIGHT_UM = 5.5  # Tight gate sharpened from 6.0 to 5.5 (PPSWEEP +0.0021 proxy)
+MOTION_RELINK_RELAXED_UM = 10.0
+SAFE_DIV_MAX_UM = 9.0  # Empirical upper limit for parent-daughter link (was 7.0)
+SAFE_DIV_SISTER_MAX_UM = 14.0  # Empirical p90 sister separation (was 12.0)
+SAFE_DIV_SISTER_SYMMETRY_TAU = 0.6  # Eliminates asymmetric false split pairs
+SAFE_DIV_DIVERGE_UM = 2.25  # Post-mitotic divergence at t+2
+MIN_DAUGHTER_SEPARATION_UM = 1.8  # Physical cleavage lower separation gate
+MAX_DAUGHTER_SEPARATION_UM = 14.0
 DIVISION_WEIGHT = 0.1
+
+# Model Ensemble & TTA Invariants
+BIOHUB_DUAL_SEED_MIN_CANDIDATE_RETENTION = 0.90  # Frame-level retention guard
+BIOHUB_BIDIRECTIONAL_EDGE_WEIGHT = 0.15  # Harmonic probability edge fusion
 
 # Brand Colors for Visualizations
 BIOHUB_PRIMARY = "#6A45FF"

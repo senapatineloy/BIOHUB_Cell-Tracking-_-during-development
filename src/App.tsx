@@ -7,11 +7,12 @@ import { MetricWorkbench } from './components/MetricWorkbench';
 import { PythonPipelineModules } from './components/PythonPipelineModules';
 import { SubmissionInspector } from './components/SubmissionInspector';
 import { EngineeringPrinciples } from './components/EngineeringPrinciples';
+import { GrandmasterEvolution } from './components/GrandmasterEvolution';
 import { PHYSICAL_SCALING, CellEdge, BIOHUB_BRAND } from './types';
-import { Box, FileCheck, ShieldCheck, Cpu, Layers, Crosshair, Terminal } from 'lucide-react';
+import { Box, FileCheck, ShieldCheck, Cpu, Layers, Crosshair, Terminal, Trophy } from 'lucide-react';
 
 export default function App() {
-  const [activeView, setActiveView] = useState<'visualizer' | 'metric' | 'code' | 'submission' | 'principles'>('visualizer');
+  const [activeView, setActiveView] = useState<'visualizer' | 'metric' | 'evolution' | 'code' | 'submission' | 'principles'>('visualizer');
   const [currentTime, setCurrentTime] = useState<number>(2);
   const [selectedNodeId, setSelectedNodeId] = useState<number | null>(null);
   const [visLayout, setVisLayout] = useState<'split' | '3d' | 'dendrogram'>('split');
@@ -214,6 +215,18 @@ export default function App() {
           >
             <Cpu className="w-4 h-4 text-[#A259FF]" />
             ⚡ Ingestion &amp; Tracking Engine
+          </button>
+
+          <button
+            onClick={() => setActiveView('evolution')}
+            className={`flex items-center gap-2 px-4 py-2.5 border-b-2 transition-all whitespace-nowrap ${
+              activeView === 'evolution'
+                ? 'border-[#6A45FF] text-white font-bold bg-[#6A45FF]/10'
+                : 'border-transparent text-[#A5A1B8] hover:text-white hover:border-[#352C58]'
+            }`}
+          >
+            <Trophy className="w-4 h-4 text-amber-400" />
+            🏆 Grandmaster Evolution (v30 Suite)
           </button>
 
           <button
@@ -423,6 +436,10 @@ export default function App() {
             estimatedNodes={estimatedNodes}
             onEstimatedNodesChange={setEstimatedNodes}
           />
+        )}
+
+        {activeView === 'evolution' && (
+          <GrandmasterEvolution />
         )}
 
         {activeView === 'code' && (
